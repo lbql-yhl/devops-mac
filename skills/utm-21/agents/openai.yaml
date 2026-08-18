@@ -1,0 +1,4 @@
+interface:
+  display_name: "UTM 21"
+  short_description: "Prepare the cloned project for its Xcode handoff"
+  default_prompt: "Use $utm-21 to clone and prepare the current project for Xcode."

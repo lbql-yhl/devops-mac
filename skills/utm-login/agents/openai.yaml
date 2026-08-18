@@ -1,0 +1,4 @@
+interface:
+  display_name: "UTM Login"
+  short_description: "Sign the exact Apple Account into the UTM guest"
+  default_prompt: "Use $utm-login to sign the configured Apple Account into the current guest."

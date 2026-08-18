@@ -1,0 +1,4 @@
+interface:
+  display_name: "UTM 23"
+  short_description: "Prepare the App Store Connect review draft"
+  default_prompt: "Use $utm-23 to prepare the current App Store Connect review draft."

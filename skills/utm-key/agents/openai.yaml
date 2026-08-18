@@ -1,0 +1,4 @@
+interface:
+  display_name: "UTM Key"
+  short_description: "Prepare Apple identifiers certificates and profiles"
+  default_prompt: "Use $utm-key to prepare Apple identifiers, certificates, keys, and profiles."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "UTM Edit"
+  short_description: "Complete the current Apple Account password stage"
+  default_prompt: "Use $utm-edit to complete the password-change stage for the current account."

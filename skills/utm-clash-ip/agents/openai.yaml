@@ -1,0 +1,4 @@
+interface:
+  display_name: "UTM Clash IP"
+  short_description: "Configure the assigned proxy for one UTM guest"
+  default_prompt: "Use $utm-clash-ip to configure the current guest proxy and network identity."

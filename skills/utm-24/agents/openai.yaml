@@ -1,0 +1,4 @@
+interface:
+  display_name: "UTM 24"
+  short_description: "Submit and expedite the verified review draft"
+  default_prompt: "Use $utm-24 to submit and expedite the verified App Store Connect draft."

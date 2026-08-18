@@ -1,0 +1,4 @@
+interface:
+  display_name: "UTM Apps"
+  short_description: "Run authenticated Apple application setup stages"
+  default_prompt: "Use $utm-apps to complete the application setup stages in the existing session."

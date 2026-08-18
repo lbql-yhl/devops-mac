@@ -1,0 +1,4 @@
+interface:
+  display_name: "UTM Business"
+  short_description: "Verify App Store Connect business and banking setup"
+  default_prompt: "Use $utm-business to verify business and banking setup for the current application."

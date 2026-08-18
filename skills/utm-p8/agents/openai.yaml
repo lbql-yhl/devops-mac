@@ -1,0 +1,4 @@
+interface:
+  display_name: "UTM P8"
+  short_description: "Finalize the App Store Connect API key setup"
+  default_prompt: "Use $utm-p8 to finalize the current application API key configuration."

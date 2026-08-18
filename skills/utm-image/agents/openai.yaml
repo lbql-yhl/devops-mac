@@ -1,0 +1,4 @@
+interface:
+  display_name: "UTM Image"
+  short_description: "Prepare and verify exact submission image assets"
+  default_prompt: "Use $utm-image to prepare and verify the current application image assets."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "UTM 22"
+  short_description: "Archive and upload the verified application build"
+  default_prompt: "Use $utm-22 to archive and upload the verified application build."

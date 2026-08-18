@@ -1,0 +1,47 @@
+# Local credentials and signing material
+.env
+*.env
+.env.*
+!.env.example
+!*.env.example
+config/workflow.env
+*.p8
+*.p12
+*.pem
+*.key
+*.cer
+*.mobileprovision
+
+# Runtime and generated files
+runtime/
+.codex_diag/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+htmlcov/
+.DS_Store
+tools/bin/cloudflared
+.worktrees/
+
+# Virtual machine images and snapshots
+*.utm/
+*.vmwarevm/
+*.qcow2
+*.vmdk
+*.vdi
+*.vhd
+*.vhdx
+*.raw
+*.iso
+*.ova
+*.ovf
+*.vmsn
+
+# Desktop shared-directory runtime data and reproducible dependencies
+shared-files/**/.env
+shared-files/**/node_modules/
+shared-files/**/dist/
+shared-files/**/playwright-report/
+shared-files/socks5.yml
+shared-files/apple-store-bm/config/prod.yml

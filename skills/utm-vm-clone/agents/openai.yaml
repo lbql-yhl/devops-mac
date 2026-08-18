@@ -1,0 +1,4 @@
+interface:
+  display_name: "UTM VM Clone"
+  short_description: "Clone and initialize one exact UTM macOS guest"
+  default_prompt: "Use $utm-vm-clone to clone and initialize the configured UTM guest."

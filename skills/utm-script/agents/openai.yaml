@@ -1,0 +1,4 @@
+interface:
+  display_name: "UTM Script"
+  short_description: "Execute the fixed application automation stage"
+  default_prompt: "Use $utm-script to run the fixed automation stage in the prepared guest."

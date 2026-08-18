@@ -1,0 +1,4 @@
+interface:
+  display_name: "UTM Notion"
+  short_description: "Prepare the exact Notion application and VM page"
+  default_prompt: "Use $utm-notion to prepare the current application page in Notion."

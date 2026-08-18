@@ -1,0 +1,14 @@
+apple_store:
+  issuer_id: REPLACE_WITH_ISSUER_ID
+  key_id: REPLACE_WITH_KEY_ID
+  private_key_path: ./config/AuthKey_REPLACE_WITH_KEY_ID.p8
+
+app_info:
+  bundle_id: com.example.app
+  platform: IOS
+  version: 1.0
+  locale: en-US
+  preview_type: IPHONE_67
+  update_version_txt: replace-with-release-notes
+  file_path:
+  dir_path:

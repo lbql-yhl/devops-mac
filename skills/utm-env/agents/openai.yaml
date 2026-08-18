@@ -1,0 +1,4 @@
+interface:
+  display_name: "UTM Environment"
+  short_description: "Materialize the submission environment and assets"
+  default_prompt: "Use $utm-env to prepare the current guest environment and application assets."
