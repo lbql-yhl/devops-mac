@@ -1,0 +1,142 @@
+{
+  "schema_version": 1,
+  "project_version": "3.0",
+  "name": "devops-mac",
+  "description": "飞书主控 Agent 编排 macOS 提审专家 Agent 与 16 个 Playwright/自动化 Skills。",
+  "runtime_status": {
+    "feishu_submission_start_enabled": false,
+    "note": "v3.0 先固化编排协议、提示词与故障闭环；当前公开版本保留 Feishu 提审启动禁用开关。"
+  },
+  "mainline_order": [
+    "utm-vm-clone",
+    "utm-notion",
+    "utm-clash-ip",
+    "utm-login",
+    "utm-edit",
+    "utm-key",
+    "utm-apps",
+    "utm-business",
+    "utm-env",
+    "utm-script",
+    "utm-image",
+    "utm-p8",
+    "utm-21",
+    "utm-22",
+    "utm-23",
+    "utm-24"
+  ],
+  "handoff_schema": [
+    "status",
+    "run_id",
+    "agent_id",
+    "skill_id",
+    "evidence",
+    "artifacts",
+    "next_step"
+  ],
+  "fault_policy": {
+    "retry_limit": 2,
+    "repair_limit": 2,
+    "repair_environment": "isolated-test-environment",
+    "regression_required": true,
+    "final_fallback": "human"
+  },
+  "agents": [
+    {
+      "id": "feishu-orchestrator",
+      "name": "飞书主控 Agent",
+      "role": "接收提审请求、澄清缺失信息、编排专家 Agent、汇总证据并实时通知结果。",
+      "prompt_file": "docs/agent-prompts/feishu-orchestrator.md",
+      "skills": [],
+      "handoff": "结构化分派与回收，不直接执行底层 UI 操作。"
+    },
+    {
+      "id": "submission-registration",
+      "name": "提审登记与资料专家 Agent",
+      "role": "读取并校验提审资料，绑定精确 run、应用、版本与工作目录。",
+      "prompt_file": "docs/agent-prompts/submission-registration.md",
+      "skills": ["utm-notion"],
+      "handoff": "输出可供后续阶段复用的精确上下文与资料证据。"
+    },
+    {
+      "id": "vm-preparation",
+      "name": "虚拟机准备专家 Agent",
+      "role": "准备并校验提审专用 UTM macOS guest。",
+      "prompt_file": "docs/agent-prompts/vm-preparation.md",
+      "skills": ["utm-vm-clone"],
+      "handoff": "只交接已验证的 VM、网络与 SSH 身份。"
+    },
+    {
+      "id": "environment-preparation",
+      "name": "环境准备专家 Agent",
+      "role": "按固定顺序完成代理、登录、编辑、密钥、应用与业务环境准备。",
+      "prompt_file": "docs/agent-prompts/environment-preparation.md",
+      "skills": ["utm-clash-ip", "utm-login", "utm-edit", "utm-key", "utm-apps", "utm-business"],
+      "handoff": "每个技能独立留痕，失败时回到原技能入口。"
+    },
+    {
+      "id": "script-execution",
+      "name": "脚本准备与执行专家 Agent",
+      "role": "准备提审脚本、执行固定动作并回收结构化结果。",
+      "prompt_file": "docs/agent-prompts/script-execution.md",
+      "skills": ["utm-env", "utm-script"],
+      "handoff": "输出脚本执行状态、日志索引与下一阶段入口。"
+    },
+    {
+      "id": "visual-assets",
+      "name": "生图专家 Agent",
+      "role": "生产并校验 app 截图、金币图、研发截图等提审图像资产。",
+      "prompt_file": "docs/agent-prompts/visual-assets.md",
+      "skills": ["utm-image"],
+      "handoff": "只交接已校验格式、尺寸、哈希和脱敏状态的图像资产。"
+    },
+    {
+      "id": "p8-materials",
+      "name": "P8 与签名材料专家 Agent",
+      "role": "准备 P8 及相关提审材料，遵守密钥与证书不出库边界。",
+      "prompt_file": "docs/agent-prompts/p8-materials.md",
+      "skills": ["utm-p8"],
+      "handoff": "只交接材料状态和脱敏证据，不交接私钥、证书或 profile 内容。"
+    },
+    {
+      "id": "app-a-code",
+      "name": "App 应用 A 面代码专家 Agent",
+      "role": "完成 App A 面代码处理、版本与构建前校验。",
+      "prompt_file": "docs/agent-prompts/app-a-code.md",
+      "skills": ["utm-21"],
+      "handoff": "交接代码处理结果、版本/构建绑定和可复核证据。"
+    },
+    {
+      "id": "build-distribution",
+      "name": "构建与分发专家 Agent",
+      "role": "执行归档、分发与上传前后校验，不擅自选择模糊的最新产物。",
+      "prompt_file": "docs/agent-prompts/build-distribution.md",
+      "skills": ["utm-22"],
+      "handoff": "交接精确构建、上传状态与处理状态。"
+    },
+    {
+      "id": "review-preparation",
+      "name": "审核提交流程专家 Agent",
+      "role": "准备 App Store Connect 审核资料、IAP、合规与截图，不点击最终提交。",
+      "prompt_file": "docs/agent-prompts/review-preparation.md",
+      "skills": ["utm-23"],
+      "handoff": "交接 Ready for Review 前的可复核证据。"
+    },
+    {
+      "id": "final-validation",
+      "name": "最终校验专家 Agent",
+      "role": "执行最终状态核验并生成提审完成报告。",
+      "prompt_file": "docs/agent-prompts/final-validation.md",
+      "skills": ["utm-24"],
+      "handoff": "成功则回报主控；异常则转故障专家。"
+    },
+    {
+      "id": "fault-recovery",
+      "name": "故障专家 Agent",
+      "role": "诊断失败、在测试环境有限修复脚本或 Skill、回归验证，无法恢复时人工兜底。",
+      "prompt_file": "docs/agent-prompts/fault-recovery.md",
+      "skills": [],
+      "handoff": "输出故障分类、修复 diff 摘要、回归证据和人工动作清单。"
+    }
+  ]
+}
