@@ -334,8 +334,9 @@ def main() -> None:
     assert "/Users/" not in generator
     assert "SHARED_DIR" in generator
 
-    runner = (ROOT / "services" / "submission_runner.py").read_text(encoding="utf-8")
+    runner = (ROOT / "services" / "submission_graph.py").read_text(encoding="utf-8")
     assert 'os.getenv("FEISHU_CODEX_MODEL", "gpt-5.6-sol")' in runner
+    assert "StateGraph" in runner
 
     installer = (ROOT / "scripts" / "install_project_skills.sh").read_text(encoding="utf-8")
     require_all(

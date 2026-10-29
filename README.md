@@ -4,29 +4,32 @@
 
 这是从 macOS 宿主协调 UTM macOS guest、Feishu OpenAPI、Notion API 与 App Store Connect 的提审自动化项目。v3.0 以**飞书机器人作为主控 Agent**，统一调度多个专家 Agent；固定流程由项目内 16 个 Skills（含 Playwright 自动化能力）封装，按需调用并保留可复核证据。
 
-> 当前公开版本先固化架构、Agent 注册表、提示词、交接协议与故障闭环；飞书提审启动仍保持禁用，不把设计能力描述为已经开启的线上自动调度。
+> 提审执行使用 LangGraph 管理计划校验与运行生命周期，LangChain/OpenAI API 校验固定阶段顺序，Codex CLI 继续执行现有 Skills。仅当模型 Key、Feishu 应用凭据、授权会话和宿主身份齐备时，完整登记消息才会启动运行。
 
 ## 技术栈
 
 | 领域 | 技术 |
 | --- | --- |
-| Agent 运行时 | Codex CLI / Codex App、项目内 Skills 与 Agent 提示词注册表 |
-| 自动化与集成 | Python、JavaScript、Playwright、Feishu Bot/OpenAPI、Notion API、App Store Connect API |
+| Agent 编排 | LangGraph（计划校验、执行状态、失败转人工） |
+| LLM 与提示词 | LangChain OpenAI、ChatPromptTemplate、OpenAI API Key |
+| Skills 执行器 | Codex CLI、项目内 16 个 Skills、Python、JavaScript、Playwright |
+| 系统集成 | Feishu Bot/OpenAPI、Notion API、App Store Connect API、UTM |
 | macOS 环境 | UTM macOS guest、SSH、分阶段执行与证据交接 |
-
-LangGraph/LangChain 当前未接入提审执行链；本项目沿用已验证的 Codex Agent + Skills 工作方式，避免引入未接入生产的编排层。
 
 ## 架构图
 
 ```mermaid
 flowchart LR
- U[用户/飞书群]-->F[飞书主控 Agent]-->E[专家 Agent 集群]
- E-->K[16 个项目 Skills]-->H[macOS 宿主 / UTM guest / Notion / Feishu / ASC]
- F-->N[实时状态与结果通知]
- E-.失败.->X[故障专家 Agent：测试环境修复与回归]-.->F
+ U[用户/飞书群]-->F[Feishu Bot]-->G[LangGraph 运行编排]
+ G-->P[LangChain/OpenAI 固定计划校验]
+ P-->C[Codex CLI 执行器]-->E[专家 Agent / 16 个 Skills]
+ E-->K[Playwright 与项目脚本]-->H[macOS / UTM / Notion / ASC]
+ G-->N[运行状态与结果通知]
+ C-.失败或阶段结果.->G
+ G-.无法安全恢复.->X[人工兜底]
 ```
 
-主控负责请求校验、编排、汇总和通知；专家负责清晰边界的阶段；Skills 是唯一执行正文源。生图专家专门生产 **app 截图、金币图、研发截图**；故障专家负责“重试 → 自愈 → 人工”；App 应用 A 面代码由独立专家负责。
+LangGraph 校验固定阶段计划、执行 Codex runner 并记录状态；LangChain/OpenAI 只接收应用名和固定阶段/Skill ID，不接收原始登记消息或凭据。Codex CLI 继续逐段执行现有 Skills，Skills 仍是唯一操作正文源；遇到无法安全恢复的状态停止并转人工。
 
 ## 提审流程图
 
@@ -76,13 +79,14 @@ flowchart LR
 
 ```bash
 git clone https://github.com/lbql-yhl/devops-mac.git && cd devops-mac
+python3 -m pip install -r requirements-agent.txt
 cp .env.example .env && chmod 600 .env && git check-ignore -q .env
 python3 scripts/preflight.py --project-only
 /bin/zsh scripts/install_project_skills.sh --install
 python3 -u services/feishu_supervisor.py
 ```
 
-按 [配置参考](docs/configuration.md) 填写当前宿主自己的 token、key、ID、path 和 password；不要复制其他机器的 `.env`。宿主/guest 依赖见 [依赖检查](docs/host-vm-dependency-check.md)，Feishu 部署见 [Bot 指南](docs/utm-feishu-bot.md)。当前飞书提审启动禁用：完整登记消息和 `/提审 开始` 不会创建新 run、VM、prompt 或后台 runner。
+按 [配置参考](docs/configuration.md) 填写当前宿主自己的 token、key、ID、path 和 password；不要复制其他机器的 `.env`。宿主/guest 依赖见 [依赖检查](docs/host-vm-dependency-check.md)，Feishu 部署见 [Bot 指南](docs/utm-feishu-bot.md)。完整登记消息只会在模型 Key、Feishu 应用凭据、授权会话和宿主身份齐备后创建 run 并启动 LangGraph runner。
 
 ## 执行边界与安全
 

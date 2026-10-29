@@ -32,7 +32,7 @@ git check-ignore -q .env
 | `UTM_NOTION_FEISHU_TABLE_ID` | 二选一三元组 | Feishu Base | 直接 Base 路由的 table ID |
 | `UTM_NOTION_FEISHU_VIEW_ID` | 二选一三元组 | Feishu Base | 直接 Base 路由的 view ID |
 | `SUBMISSION_HOST_MACHINE` | 必需 | 当前宿主的管理员 | 绑定 Feishu run、Notion 父级与本机资源所有权 |
-| `OPENAI_API_KEY` | 条件 | 当前宿主的 OpenAI 账号 | 仅在启用 OpenAI assistant provider 时认证 |
+| `OPENAI_API_KEY` | 提审/assistant 必需 | 当前宿主的 OpenAI 账号 | LangChain 提审计划校验与 OpenAI assistant；只向计划模型发送应用名和固定阶段/Skill ID，不发送运行凭据 |
 | `CODEUP_USERNAME` | 条件 | 当前宿主可用的 Codeup 账号 | `utm-21` 的临时 credential helper 用户名 |
 | `CODEUP_PASSWORD` | 条件 | 当前宿主可用的 Codeup 账号 | `utm-21` 的临时 credential helper 密码 |
 
@@ -54,7 +54,7 @@ Feishu 源必须使用下列两种形式之一：
 | `FEISHU_VERIFY_DELIVERY` | 可选 | 运维策略 | 是否通过 OpenAPI 复验消息送达 |
 | `USER_CONFIRM_API_URL` | 条件 | 当前宿主的确认服务 | 需要外部确认时的 API 路由 |
 | `USER_CONFIRM_API_TIMEOUT_SECONDS` | 可选 | 运维策略 | 外部确认 API 超时 |
-| `FEISHU_ALLOWED_CHAT_ID` | 条件 | 当前宿主管理的 Feishu 会话 | 将命令/回复限定在单个授权会话 |
+| `FEISHU_ALLOWED_CHAT_ID` | 提审必需 | 当前宿主管理的 Feishu 会话 | 将提审命令与回复限定到唯一授权会话 |
 | `FEISHU_POLL_CHAT_IDS` | 条件 | 当前宿主管理的 Feishu 会话 | 仅轮询模式下的会话白名单 |
 | `FEISHU_POLL_INTERVAL_SECONDS` | 可选 | 运维策略 | 轮询间隔 |
 | `FEISHU_WS_ENABLED` | 可选 | 部署策略 | 启用推荐的 WebSocket 长连接 |
@@ -62,7 +62,7 @@ Feishu 源必须使用下列两种形式之一：
 | `FEISHU_PUBLIC_HEALTH_CHECK` | 条件 | 部署策略 | 是否允许 supervisor 检查公网 health URL |
 | `CLOUDFLARED_BIN` | 条件 | 当前宿主安装 | 覆盖 `cloudflared` 可执行文件的可移植解析 |
 | `CLOUDFLARED_PROTOCOL` | 条件 | 当前宿主网络策略 | tunnel 传输协议 |
-| `OPENAI_MODEL` | 条件 | 当前宿主的 assistant 策略 | OpenAI provider 的模型名 |
+| `OPENAI_MODEL` | 提审/assistant 必需 | 当前宿主的模型策略 | LangChain 提审计划校验与 OpenAI assistant 使用的模型名 |
 | `FEISHU_ASSISTANT_PROVIDER` | 可选 | 当前宿主的 assistant 策略 | 选择 assistant provider |
 | `FEISHU_ASSISTANT_ENABLED` | 可选 | 当前宿主的 assistant 策略 | 启用或禁用普通 assistant 回复 |
 | `FEISHU_ASSISTANT_REQUIRE_MENTION` | 可选 | 当前宿主的群聊策略 | 群聊中仅在 @bot 时回复 |
@@ -75,7 +75,7 @@ Feishu 源必须使用下列两种形式之一：
 
 | 键名 | 必需性 | 来源 | 用途 |
 |---|---|---|---|
-| `SUBMISSION_RUNNER_COMMAND` | 可选 | 当前宿主 PATH/部署策略 | 保留的 runner 命令；当前 Feishu 提审启动禁用 |
+| `SUBMISSION_RUNNER_COMMAND` | 可选 | 当前宿主 PATH/部署策略 | LangGraph runner 命令；留空时使用仓库内 `services/submission_runner.py` |
 | `SUBMISSION_RUNNER_TIMEOUT_SECONDS` | 可选 | 运维策略 | 保留 runner 的有界超时 |
 | `SUBMISSION_PROJECT_ROOT` | 可选 | 当前 clone 位置 | 覆盖项目根目录；留空时从源码位置解析 |
 | `SUBMISSION_VM_IMAGES_DIR` | 可选 | 当前宿主的 UTM 资产布局 | VM 库目录 |
@@ -90,7 +90,7 @@ Feishu 源必须使用下列两种形式之一：
 | 键名 | 必需性 | 来源 | 用途 |
 |---|---|---|---|
 | `SUBMISSION_RUN_ID` | 条件 | 当次 Feishu/run 协调器 | 将命令绑定到唯一 run |
-| `SUBMISSION_PROMPT_PATH` | 条件 | 当次 session handoff | 将保留 runner 绑定到当次提示文件 |
+| `SUBMISSION_PROMPT_PATH` | 条件 | LangGraph runner | 将运行绑定到当前安全提示文件 |
 | `SUBMISSION_CHAT_ID` | 条件 | 当次 Feishu 事件/命令 | 将卡片或状态操作绑定到原会话 |
 | `VM_NAME` | 条件 | 当次 VM 克隆/技能交接 | 传递已验证的精确 VM 名称 |
 | `LOCAL_BROWSER_CDP_PORT` | 可选 | 当次本地浏览器会话 | 指定本地 CDP 端口 |

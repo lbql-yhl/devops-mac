@@ -106,17 +106,21 @@ Account Number：000000000000
         old_images_dir = feishu_bot.VM_IMAGES_DIR
         old_runs_file = feishu_bot.RUNS_FILE
         old_prompts_dir = feishu_bot.PROMPTS_DIR
-        old_codex_app_sessions_dir = feishu_bot.CODEX_APP_SESSIONS_DIR
+        old_runtime_dir = feishu_bot.RUNTIME_DIR
         tmp_path = Path(tmp)
         feishu_bot.VM_IMAGES_DIR = tmp_path / "images"
         feishu_bot.VM_IMAGES_DIR.mkdir()
         feishu_bot.RUNS_FILE = tmp_path / "runs.json"
         feishu_bot.PROMPTS_DIR = tmp_path / "prompts"
-        feishu_bot.CODEX_APP_SESSIONS_DIR = tmp_path / "codex-app-sessions"
+        feishu_bot.RUNTIME_DIR = tmp_path / "runtime"
         config = replace(
             config,
             allowed_chat_id=FIXTURE_ALLOWED_CHAT,
             runner_command="python3 services/submission_runner.py",
+            app_id="test-app-id",
+            app_secret="test-app-secret",
+            verification_token="test-verification-token",
+            openai_api_key="test-model-key",
             assistant_enabled=False,
             submission_host_machine="海淋",
         )
@@ -124,7 +128,7 @@ Account Number：000000000000
             blank_config = replace(config, submission_host_machine="")
             assert feishu_bot.handle_incoming_text(
                 blank_config, text, FIXTURE_ALLOWED_CHAT, source="test"
-            ) == ""
+            ).startswith("提审流程尚未就绪")
             foreign_text = text.replace("使用的宿主机：海淋", "使用的宿主机：dev1", 1)
             assert feishu_bot.handle_incoming_text(
                 config, foreign_text, FIXTURE_ALLOWED_CHAT, source="test"
@@ -135,20 +139,9 @@ Account Number：000000000000
             assert not feishu_bot.RUNS_FILE.exists()
             assert not feishu_bot.PROMPTS_DIR.exists()
 
-            assert feishu_bot.handle_incoming_text(
-                config,
-                text.split("银行信息：", 1)[0],
-                FIXTURE_ALLOWED_CHAT,
-                source="test",
-            ) == ""
-            assert not feishu_bot.RUNS_FILE.exists()
-            assert not feishu_bot.PROMPTS_DIR.exists()
-            assert not feishu_bot.CODEX_APP_SESSIONS_DIR.exists()
-
-            with mock.patch.object(feishu_bot, "SUBMISSION_START_ENABLED", True), mock.patch.object(
-                feishu_bot.subprocess, "Popen",
-                side_effect=AssertionError("Feishu intake must not start a background runner"),
-            ):
+            with mock.patch.object(
+                feishu_bot.subprocess, "Popen", return_value=mock.Mock(pid=12345)
+            ) as popen:
                 assert (
                     feishu_bot.handle_incoming_text(
                         config,
@@ -156,23 +149,17 @@ Account Number：000000000000
                         FIXTURE_ALLOWED_CHAT,
                         source="test",
                     )
-                    == "收到，准备开始SampleApp提审。"
+                    .startswith("已启动 LangGraph 提审流程：")
                 )
+            popen.assert_called_once()
             assert feishu_bot.RUNS_FILE.exists()
             prompt_paths = list(feishu_bot.PROMPTS_DIR.glob("*.md"))
             assert len(prompt_paths) == 1
-            session_paths = list(feishu_bot.CODEX_APP_SESSIONS_DIR.glob("*.json"))
-            assert len(session_paths) == 1
             runs = feishu_bot.read_json(feishu_bot.RUNS_FILE, {"runs": []})["runs"]
             assert len(runs) == 1
-            assert runs[0]["status"] == "codex_app_session_requested"
-            assert runs[0]["codex_app_session_path"] == str(session_paths[0])
-            assert "runner_log_path" not in runs[0]
-            session = feishu_bot.read_json(session_paths[0], {})
-            assert session["status"] == "requested"
-            assert session["run_id"] == runs[0]["id"]
-            assert session["prompt_path"] == str(prompt_paths[0])
-            assert "do not run the background submission runner" in session["instruction"]
+            assert runs[0]["status"] == "running"
+            assert runs[0]["runner_pid"] == "12345"
+            assert runs[0]["runner_log_path"].endswith(".langgraph.log")
             prompt = prompt_paths[0].read_text(encoding="utf-8")
             agents = (root / "AGENTS.md").read_text(encoding="utf-8")
             current_line = next(
@@ -194,7 +181,7 @@ Account Number：000000000000
             feishu_bot.VM_IMAGES_DIR = old_images_dir
             feishu_bot.RUNS_FILE = old_runs_file
             feishu_bot.PROMPTS_DIR = old_prompts_dir
-            feishu_bot.CODEX_APP_SESSIONS_DIR = old_codex_app_sessions_dir
+            feishu_bot.RUNTIME_DIR = old_runtime_dir
 
     account_block = format_account_block(data)
     assert account_block.splitlines() == [

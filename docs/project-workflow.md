@@ -1,6 +1,6 @@
 # 项目流程与 Agent 交接
 
-`devops-mac` v3.0 将飞书机器人作为主控 Agent，统一调度专家 Agent；专家 Agent 只通过项目内 16 个 Skills 的唯一入口执行固定流程。本文描述阶段、映射和交接协议，不复制任何 Skill 的操作 runbook。
+`devops-mac` v3.0 由 LangGraph 管理提审运行状态与固定阶段顺序，LangChain/OpenAI 校验不可变计划，Codex CLI 调度专家 Agent；专家只通过项目内 16 个 Skills 的唯一入口执行固定流程。本文描述阶段、映射和交接协议，不复制 Skill 操作 runbook。
 
 > 图片中有时写作 utm-clash；当前仓库真实技能目录和主线名称是 `utm-clash-ip`，本文以仓库源代码为准，不新增虚构技能目录。
 
@@ -62,4 +62,4 @@
 - 单技能执行以 `skills/<skill>/SKILL.md` 为唯一可执行真值；先遵守 [共享自动化合同](../skills/_shared/AUTOMATION_CONTRACT.md)。
 - Notion 只通过 `scripts/notion_api.py` 或项目内部封装读写；Feishu 只通过 Bot/OpenAPI 访问。
 - 文档只做索引，不读取或解释脚本内容；配置见 [配置参考](configuration.md)，部署见 [Feishu Bot 指南](utm-feishu-bot.md)。
-- 当前公开版本保留 Feishu 提审启动禁用状态；v3.0 的编排协议和提示词先作为可审计设计资产落库。
+- Feishu 提审入口仅在 OpenAI API Key、Feishu 应用凭据、授权会话和宿主身份齐备时启动；LangGraph 校验固定计划，Codex CLI 按现有 Skill 主线执行。

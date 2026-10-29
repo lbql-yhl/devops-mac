@@ -24,9 +24,6 @@ def configure_bot_paths(monkeypatch: pytest.MonkeyPatch, root: Path) -> Path:
     monkeypatch.setattr(feishu_bot, "RUNS_FILE", runtime / "feishu-runs.json")
     monkeypatch.setattr(feishu_bot, "PROMPTS_DIR", runtime / "prompts")
     monkeypatch.setattr(
-        feishu_bot, "CODEX_APP_SESSIONS_DIR", runtime / "codex-app-sessions"
-    )
-    monkeypatch.setattr(
         feishu_bot,
         "PROCESSED_MESSAGES_FILE",
         runtime / "feishu-processed-messages.json",

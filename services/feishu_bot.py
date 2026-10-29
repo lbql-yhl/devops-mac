@@ -14,6 +14,7 @@ import json
 import os
 import re
 import secrets
+import shlex
 import string
 import subprocess
 import sys
@@ -76,7 +77,6 @@ VM_IMAGES_DIR = PROJECT_ROOT / "host-assets" / "vm-images"
 RUNTIME_DIR = ROOT / "runtime"
 RUNS_FILE = RUNTIME_DIR / "feishu-runs.json"
 PROMPTS_DIR = RUNTIME_DIR / "prompts"
-CODEX_APP_SESSIONS_DIR = RUNTIME_DIR / "codex-app-sessions"
 PROCESSED_MESSAGES_FILE = RUNTIME_DIR / "feishu-processed-messages.json"
 PROCESSED_MESSAGES_DIR = RUNTIME_DIR / "feishu-processed-messages"
 CONVERSATIONS_FILE = RUNTIME_DIR / "feishu-conversations.json"
@@ -89,7 +89,6 @@ def harden_runtime_metadata() -> None:
     secure_runtime_root(RUNTIME_DIR, create=True)
     for directory in (
         PROMPTS_DIR,
-        CODEX_APP_SESSIONS_DIR,
         PROCESSED_MESSAGES_DIR,
     ):
         secure_runtime_tree(directory)
@@ -108,14 +107,14 @@ LEGACY_CALLBACK_PATHS = {"/"}
 
 COMMAND_PREFIXES = ("/提审", "提审")
 HELP_TEXT = """提审机器人命令：
-提审启动入口当前已禁用，登记消息和 /提审 开始 不会创建新运行
+配置完成后，完整登记消息或 /提审 开始 可启动 LangGraph 提审流程
 /提审 状态 - 查看最近一次运行
 /提审 日志 - 查看最近提示文件路径
 /提审 继续 - 标记为继续处理
 /提审 停止 - 标记为已停止
 /提审 帮助 - 查看命令"""
 DECISION_TIMEOUT_SECONDS = 3600
-SUBMISSION_START_ENABLED = False
+SUBMISSION_START_ENABLED = True
 SUBMISSION_SKILL_ORDER = (
     "utm-vm-clone",
     "utm-notion",
@@ -161,6 +160,7 @@ class Config:
     codex_command: str
     codex_model: str
     codex_timeout_seconds: int
+    submission_runner_timeout_seconds: int
     verify_delivery: bool
     user_confirm_api_url: str
     user_confirm_timeout_seconds: int
@@ -278,6 +278,13 @@ def load_config(
             minimum=1,
             maximum=86400,
         ),
+        submission_runner_timeout_seconds=integer_setting(
+            settings,
+            "SUBMISSION_RUNNER_TIMEOUT_SECONDS",
+            default=21600,
+            minimum=60,
+            maximum=172800,
+        ),
         verify_delivery=setting("FEISHU_VERIFY_DELIVERY", "1").lower()
         in {"1", "true", "yes"},
         user_confirm_api_url=setting(
@@ -291,6 +298,23 @@ def load_config(
             maximum=86400,
         ),
     )
+
+
+def submission_start_missing(config: Config) -> list[str]:
+    """Return required host settings without exposing any configured values."""
+    required = (
+        ("FEISHU_APP_ID", config.app_id),
+        ("FEISHU_APP_SECRET", config.app_secret),
+        ("FEISHU_VERIFICATION_TOKEN", config.verification_token),
+        ("FEISHU_ALLOWED_CHAT_ID", config.allowed_chat_id),
+        ("SUBMISSION_HOST_MACHINE", config.submission_host_machine),
+        ("OPENAI_API_KEY", config.openai_api_key),
+    )
+    return [name for name, value in required if not value]
+
+
+def submission_start_ready(config: Config) -> bool:
+    return SUBMISSION_START_ENABLED and not submission_start_missing(config)
 
 
 def utc_now() -> str:
@@ -605,7 +629,7 @@ def generate_vm_name() -> str:
 
 
 def build_submission_run(config: Config, text: str, chat_id: str, source: str = "feishu") -> tuple[dict[str, Any], str] | None:
-    if not SUBMISSION_START_ENABLED:
+    if not submission_start_ready(config):
         return None
     data = parse_submission_data(text)
     if not data:
@@ -622,19 +646,9 @@ def build_submission_run(config: Config, text: str, chat_id: str, source: str = 
                 )
 
             duplicate = mutate_run(duplicate["id"], add_vm_name) or duplicate
-        if duplicate.get("status") == "queued" and not duplicate.get("codex_app_session_path"):
-            def start_existing(item: dict[str, Any]) -> None:
-                prepare_codex_app_session(config, item)
-                item.setdefault("events", []).append(
-                    {
-                        "at": utc_now(),
-                        "status": "codex_app_session_requested",
-                        "note": f"Duplicate data from {source} created Codex App handoff for queued run",
-                    }
-                )
-
-            updated = mutate_run(duplicate["id"], start_existing)
-            return updated or duplicate, "started_existing"
+        if duplicate.get("status") == "queued" and not duplicate.get("runner_pid"):
+            message = launch_runner(config, duplicate)
+            return find_run(duplicate["id"]) or duplicate, message
         updated = mutate_run(
             duplicate["id"],
             lambda item: item.setdefault("events", []).append(
@@ -649,16 +663,15 @@ def build_submission_run(config: Config, text: str, chat_id: str, source: str = 
         "chat_id": chat_id,
         "raw_text": text,
         "submission_data": data,
-        "status": "created",
+        "status": "queued",
         "source": source,
         "created_at": utc_now(),
         "updated_at": utc_now(),
         "events": [{"at": utc_now(), "status": "created", "note": f"Submission data received from {source}"}],
     }
-    message = prepare_codex_app_session(config, run)
-    run["updated_at"] = utc_now()
     save_run(run)
-    return run, message
+    message = launch_runner(config, run)
+    return find_run(run["id"]) or run, message
 
 
 def find_duplicate_submission(chat_id: str, data: dict[str, Any]) -> dict[str, Any] | None:
@@ -872,52 +885,76 @@ def is_callback_path(raw_path: str) -> bool:
     return path == CALLBACK_PATH or path in LEGACY_CALLBACK_PATHS
 
 
-def prepare_codex_app_session(config: Config, run: dict[str, Any]) -> str:
-    prompt_path = PROMPTS_DIR / f"{run['id']}.md"
-    secure_write_text(prompt_path, build_codex_prompt(run))
-    run["prompt_path"] = str(prompt_path)
-    session_path = create_codex_app_session_request(run, prompt_path)
-    return (
-        f"已创建运行 {run['id']}，并生成 Codex App 会话交接。\n"
-        f"提示文件：{prompt_path}\n"
-        f"会话交接：{session_path}\n"
-        "未启动后台 runner。"
-    )
-
-
 def launch_runner(config: Config, run: dict[str, Any]) -> str:
-    return prepare_codex_app_session(config, run)
+    prompt_path = PROMPTS_DIR / f"{run['id']}.md"
+    log_path = RUNTIME_DIR / f"{run['id']}.langgraph.log"
+    secure_write_text(prompt_path, build_codex_prompt(run))
+    secure_write_text(log_path, "")
 
-
-def create_codex_app_session_request(run: dict[str, Any], prompt_path: Path) -> Path:
-    CODEX_APP_SESSIONS_DIR.mkdir(parents=True, exist_ok=True)
-    session_path = CODEX_APP_SESSIONS_DIR / f"{run['id']}.json"
-    payload = {
-        "run_id": run["id"],
-        "app_name": run.get("app_name", ""),
-        "vm_name": run.get("vm_name", ""),
-        "chat_id": run.get("chat_id", ""),
-        "source": run.get("source", "feishu"),
-        "status": "requested",
-        "created_at": utc_now(),
-        "prompt_path": str(prompt_path),
-        "project_root": str(ROOT),
-        "instruction": (
-            "Open this prompt in a Codex App session and execute the submission "
-            "workflow in the foreground; do not run the background submission runner."
-        ),
-    }
-    write_json(session_path, payload)
-    run["codex_app_session_path"] = str(session_path)
-    run["status"] = "codex_app_session_requested"
-    run.setdefault("events", []).append(
+    env = os.environ.copy()
+    env.update(
         {
-            "at": utc_now(),
-            "status": "codex_app_session_requested",
-            "note": "Codex App handoff created; background runner was not started",
+            "SUBMISSION_RUN_ID": run["id"],
+            "SUBMISSION_PROMPT_PATH": str(prompt_path),
+            "OPENAI_API_KEY": config.openai_api_key,
+            "OPENAI_MODEL": config.openai_model,
+            "FEISHU_CODEX_COMMAND": config.codex_command,
+            "FEISHU_CODEX_MODEL": config.codex_model,
+            "SUBMISSION_RUNNER_TIMEOUT_SECONDS": str(
+                config.submission_runner_timeout_seconds
+            ),
         }
     )
-    return session_path
+    command = shlex.split(config.runner_command) if config.runner_command else [
+        sys.executable, "-u", str(ROOT / "services" / "submission_runner.py")
+    ]
+    if not command or not any(part.replace("\\", "/").endswith("services/submission_runner.py") for part in command):
+        return "提审运行器配置无效；只允许启动项目内的 LangGraph runner。"
+    process_options = (
+        {"creationflags": subprocess.CREATE_NEW_PROCESS_GROUP}
+        if os.name == "nt"
+        else {"start_new_session": True}
+    )
+    try:
+        with log_path.open("a", encoding="utf-8") as log_file:
+            process = subprocess.Popen(
+                command,
+                cwd=str(ROOT),
+                env=env,
+                stdin=subprocess.DEVNULL,
+                stdout=log_file,
+                stderr=subprocess.STDOUT,
+                text=True,
+                **process_options,
+            )
+    except (OSError, RuntimeError, ValueError) as exc:
+        mutate_run(
+            run["id"],
+            lambda item: item.setdefault("events", []).append(
+                {
+                    "at": utc_now(),
+                    "status": "runner_start_failed",
+                    "note": f"LangGraph runner start failed: {type(exc).__name__}",
+                }
+            ),
+        )
+        return "提审运行器启动失败，请通过 /提审 日志查看安全错误码。"
+
+    def mark_started(item: dict[str, Any]) -> None:
+        item["prompt_path"] = str(prompt_path)
+        item["runner_log_path"] = str(log_path)
+        item["runner_pid"] = str(process.pid)
+        item["status"] = "running"
+        item.setdefault("events", []).append(
+            {
+                "at": utc_now(),
+                "status": "langgraph_runner_started",
+                "note": "LangGraph submission workflow started; Codex executes the existing Skills.",
+            }
+        )
+
+    mutate_run(run["id"], mark_started)
+    return f"已启动 LangGraph 提审流程：{run['id']}。"
 
 
 def handle_command(config: Config, text: str, chat_id: str) -> str:
@@ -932,12 +969,13 @@ def handle_command(config: Config, text: str, chat_id: str) -> str:
         return HELP_TEXT
 
     if command == "开始":
-        if not SUBMISSION_START_ENABLED:
-            return ""
+        missing = submission_start_missing(config)
+        if missing:
+            return "提审流程尚未就绪，请先配置：" + "、".join(missing)
         maybe_data_run = build_submission_run(config, text, chat_id, source="feishu-command")
         if maybe_data_run:
-            run, _message = maybe_data_run
-            return f"收到，准备开始{run['app_name']}提审。"
+            run, message = maybe_data_run
+            return message or f"已启动 {run['app_name']} 提审：{run['id']}。"
         return ""
 
     if command == "状态":
@@ -957,7 +995,7 @@ def handle_command(config: Config, text: str, chat_id: str) -> str:
             f"状态：{run.get('status')}\n"
             f"更新时间：{run.get('updated_at')}\n"
             f"提示文件：{run.get('prompt_path', '无')}\n"
-            f"Codex App 会话交接：{run.get('codex_app_session_path', '无')}"
+            f"LangGraph Runner PID：{run.get('runner_pid', '无')}"
             f"{pending_text}"
         )
 
@@ -968,8 +1006,8 @@ def handle_command(config: Config, text: str, chat_id: str) -> str:
         return (
             f"运行：{run['id']}\n"
             f"提示文件：{run.get('prompt_path', '无')}\n"
-            f"Codex App 会话交接：{run.get('codex_app_session_path', '无')}\n"
-            f"命令日志：{run.get('runner_log_path', '未启动后台 runner')}"
+            f"LangGraph Runner PID：{run.get('runner_pid', '无')}\n"
+            f"运行日志：{run.get('runner_log_path', '无')}"
         )
 
     if command == "继续":
@@ -993,8 +1031,10 @@ def handle_incoming_text(config: Config, text: str, chat_id: str, source: str = 
     ):
         return ""
     submission_data = parse_submission_data(text)
-    if submission_data and not SUBMISSION_START_ENABLED:
-        return ""
+    if submission_data:
+        missing = submission_start_missing(config)
+        if missing:
+            return "提审流程尚未就绪，请先配置：" + "、".join(missing)
     if submission_data and submission_data["host_machine"] != config.submission_host_machine:
         return ""
     reply = handle_command(config, text, chat_id)
@@ -1002,8 +1042,8 @@ def handle_incoming_text(config: Config, text: str, chat_id: str, source: str = 
         return reply
     maybe_data_run = build_submission_run(config, text, chat_id, source=source)
     if maybe_data_run:
-        run, _message = maybe_data_run
-        return f"收到，准备开始{run['app_name']}提审。"
+        run, message = maybe_data_run
+        return message or f"已启动 {run['app_name']} 提审：{run['id']}。"
     if should_answer_with_assistant(config, text):
         return ask_assistant(config, chat_id, text)
     return ""

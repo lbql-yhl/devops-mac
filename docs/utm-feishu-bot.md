@@ -4,11 +4,13 @@ Bot 负责 Feishu 消息、日报、普通 assistant 对话和已有 run 的状�
 
 ## 当前功能边界
 
-Feishu 提审启动当前禁用。完整登记消息和 `/提审 开始` 静默返回，不创建 run、VM 名称、prompt 或后台 runner。普通 Codex 对话、日报以及已有 run 的状态、故障卡和回调能力保留。
+Feishu 完整登记消息会在必需宿主配置齐备、来源会话命中 `FEISHU_ALLOWED_CHAT_ID` 后创建 run 并启动 LangGraph runner。缺少配置时只返回缺失键名，不创建 VM 或执行技能。普通 Codex 对话、日报以及已有 run 的状态、故障卡和回调能力保留。
 
-如果后续由代码变更恢复新 run 入口，主线仍必须遵守 [精确四段](project-workflow.md) 与项目内 16 个 `SKILL.md`；本文不授权绕过当前禁用开关。
+主线仍必须遵守 [精确四段](project-workflow.md) 与项目内 16 个 `SKILL.md`；LangGraph 只校验固定阶段顺序并管理运行状态，Codex CLI 仍按既有 Skills 执行。
 
 ## Feishu Open Platform 配置
+
+安装提审 Agent 依赖：`python3 -m pip install -r requirements-agent.txt`。提审计划校验使用 `OPENAI_API_KEY` 与 `OPENAI_MODEL`；传给 OpenAI 的上下文仅包含应用名和固定阶段/Skill ID，不包含 P8、Feishu/Notion Token、密码或原始登记消息。Codex CLI 继续按原提示执行已验证 Skills。
 
 1. 创建当前宿主专用的自建应用并启用 Bot。
 2. 从开放平台取得当前应用的 App ID/App Secret，只写入本机 `.env`。
@@ -25,6 +27,7 @@ Feishu 提审启动当前禁用。完整登记消息和 `/提审 开始` 静默�
 
 4. 订阅事件 `im.message.receive_v1` 和卡片动作 `card.action.trigger`。
 5. 将 Bot 添加到当前宿主明确授权的会话。Bot 应用、会话路由、Feishu Base/Wiki 与 Notion 根页必须都属于同一宿主配置，不按“最新”或模糊名称路由。
+6. 安装 LangGraph/LangChain runner 依赖，并配置 `OPENAI_API_KEY`、`OPENAI_MODEL`、`FEISHU_ALLOWED_CHAT_ID` 与 `SUBMISSION_HOST_MACHINE`；只有完整配置后才允许创建提审 run。
 
 ## 23 个 `FEISHU_*` 宿主键
 

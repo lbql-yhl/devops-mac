@@ -4,8 +4,16 @@
   "name": "devops-mac",
   "description": "飞书主控 Agent 编排 macOS 提审专家 Agent 与 16 个 Playwright/自动化 Skills。",
   "runtime_status": {
-    "feishu_submission_start_enabled": false,
-    "note": "v3.0 先固化编排协议、提示词与故障闭环；当前公开版本保留 Feishu 提审启动禁用开关。"
+    "feishu_submission_start_enabled": true,
+    "activation": "requires OPENAI_API_KEY, Feishu app credentials, allowed chat ID, and submission host identity",
+    "note": "LangGraph validates the immutable workflow plan; Codex executes the existing Skills. Skill order and operation boundaries remain authoritative."
+  },
+  "ai_runtime": {
+    "workflow_orchestrator": "LangGraph",
+    "prompt_and_model_integration": "LangChain OpenAI",
+    "model_api_key": "OPENAI_API_KEY",
+    "skill_executor": "Codex CLI",
+    "skill_source_of_truth": "skills/<skill>/SKILL.md"
   },
   "mainline_order": [
     "utm-vm-clone",

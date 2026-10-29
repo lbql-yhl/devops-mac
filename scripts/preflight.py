@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
 import os
 import shlex
@@ -115,6 +116,9 @@ def check(project_only: bool) -> dict[str, object]:
             PROJECT_SKILLS_DIR / "_shared" / "AUTOMATION_CONTRACT.md"
         ).is_file(),
         "python3": shutil.which("python3") is not None,
+        "langgraph": importlib.util.find_spec("langgraph") is not None,
+        "langchain_core": importlib.util.find_spec("langchain_core") is not None,
+        "langchain_openai": importlib.util.find_spec("langchain_openai") is not None,
         "codex": executable_exists(codex_command),
         "runner_enabled": runner_command_valid(runner_command),
     }
@@ -132,6 +136,15 @@ def check(project_only: bool) -> dict[str, object]:
                 ),
                 "feishu_app_secret": bool(
                     str(settings.get("FEISHU_APP_SECRET", "")).strip()
+                ),
+                "feishu_verification_token": bool(
+                    str(settings.get("FEISHU_VERIFICATION_TOKEN", "")).strip()
+                ),
+                "feishu_allowed_chat_id": bool(
+                    str(settings.get("FEISHU_ALLOWED_CHAT_ID", "")).strip()
+                ),
+                "openai_api_key": bool(
+                    str(settings.get("OPENAI_API_KEY", "")).strip()
                 ),
                 "notion_token": bool(
                     str(settings.get("NOTION_TOKEN", "")).strip()

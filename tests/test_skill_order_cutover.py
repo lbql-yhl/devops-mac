@@ -60,13 +60,11 @@ def test_proxy_cutover_starts_with_clone_and_has_no_legacy_proxy_stages() -> Non
     assert "standalone_skills=()" in installer.replace("\n", "")
 
 
-def test_feishu_submission_start_entry_is_disabled(tmp_path, monkeypatch) -> None:
-    assert feishu_bot.SUBMISSION_START_ENABLED is False
+def test_feishu_submission_start_requires_host_credentials(tmp_path, monkeypatch) -> None:
+    assert feishu_bot.SUBMISSION_START_ENABLED is True
     monkeypatch.setattr(feishu_bot, "RUNS_FILE", tmp_path / "runs.json")
     monkeypatch.setattr(feishu_bot, "PROMPTS_DIR", tmp_path / "prompts")
-    monkeypatch.setattr(
-        feishu_bot, "CODEX_APP_SESSIONS_DIR", tmp_path / "codex-app-sessions"
-    )
+    monkeypatch.setattr(feishu_bot, "RUNTIME_DIR", tmp_path / "runtime")
     config = replace(
         feishu_bot.load_config(
             environ={"FEISHU_DAILY_REPORT_CHAT_ID": "test-report-chat"}
@@ -85,9 +83,9 @@ developer@example.com
 InitialPass123!
 15550101234 https://example.com/sms
 """
+    assert "OPENAI_API_KEY" in feishu_bot.submission_start_missing(config)
     assert feishu_bot.handle_incoming_text(
         config, registration, FIXTURE_ALLOWED_CHAT, source="test"
-    ) == ""
+    ).startswith("提审流程尚未就绪")
     assert not feishu_bot.RUNS_FILE.exists()
     assert not feishu_bot.PROMPTS_DIR.exists()
-    assert not feishu_bot.CODEX_APP_SESSIONS_DIR.exists()
