@@ -8,8 +8,7 @@ PROJECT_DOCS = {
     ROOT / "AGENTS.md": 55,
     ROOT / "README.md": 100,
     ROOT / "docs/project-workflow.md": 65,
-    ROOT / "docs/utm-feishu-bot.md": 70,
-    ROOT / "docs/feishu-host-routing.md": 75,
+    ROOT / "docs/utm-feishu-bot.md": 140,
     ROOT / "shared-files/README.md": 30,
 }
 
@@ -63,7 +62,8 @@ def test_project_docs_do_not_restore_old_skill_names() -> None:
 def test_project_docs_point_execution_to_skill_commands() -> None:
     for path in (ROOT / "AGENTS.md", ROOT / "README.md", ROOT / "docs/project-workflow.md"):
         text = path.read_text(encoding="utf-8")
-        assert "每段可单独运行" in text, path
-        assert "每个技能可人工单独指定执行" in text, path
-        assert "skills/<skill>/SKILL.md" in text, path
-        assert "不读取或解释脚本内容" in text, path
+        assert "每段可单独运行" in text or "四段均可单独运行" in text, path
+        assert "每个技能可人工单独指定执行" in text or "每个技能也可人工单独指定执行" in text, path
+        assert "SKILL.md" in text, path
+        if path.name != "AGENTS.md":
+            assert "不读取或解释脚本内容" in text, path

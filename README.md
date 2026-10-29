@@ -6,6 +6,16 @@
 
 > 当前公开版本先固化架构、Agent 注册表、提示词、交接协议与故障闭环；飞书提审启动仍保持禁用，不把设计能力描述为已经开启的线上自动调度。
 
+## 技术栈
+
+| 领域 | 技术 |
+| --- | --- |
+| Agent 运行时 | Codex CLI / Codex App、项目内 Skills 与 Agent 提示词注册表 |
+| 自动化与集成 | Python、JavaScript、Playwright、Feishu Bot/OpenAPI、Notion API、App Store Connect API |
+| macOS 环境 | UTM macOS guest、SSH、分阶段执行与证据交接 |
+
+LangGraph/LangChain 当前未接入提审执行链；本项目沿用已验证的 Codex Agent + Skills 工作方式，避免引入未接入生产的编排层。
+
 ## 架构图
 
 ```mermaid
@@ -52,7 +62,7 @@ flowchart LR
 3. 脚本准备、执行：utm-env → utm-script → utm-image → utm-p8
 4. 代码处理：utm-21 → utm-22 → utm-23 → utm-24
 
-每段可单独运行，每个技能可人工单独指定执行；只运行用户指定范围，范围内保持精确顺序。图片中可能写作 utm-clash，当前仓库真实技能名是 **`utm-clash-ip`**，不新增虚构技能目录。
+每段可单独运行，每个技能可人工单独指定执行；只运行用户指定范围，范围内保持精确顺序。图示存在旧名称时，执行仍以真实技能目录 **`utm-clash-ip`** 为准。
 
 完整技能链接：[`utm-vm-clone`](skills/utm-vm-clone/SKILL.md)、[`utm-notion`](skills/utm-notion/SKILL.md)、[`utm-clash-ip`](skills/utm-clash-ip/SKILL.md)、[`utm-login`](skills/utm-login/SKILL.md)、[`utm-edit`](skills/utm-edit/SKILL.md)、[`utm-key`](skills/utm-key/SKILL.md)、[`utm-apps`](skills/utm-apps/SKILL.md)、[`utm-business`](skills/utm-business/SKILL.md)、[`utm-env`](skills/utm-env/SKILL.md)、[`utm-script`](skills/utm-script/SKILL.md)、[`utm-image`](skills/utm-image/SKILL.md)、[`utm-p8`](skills/utm-p8/SKILL.md)、[`utm-21`](skills/utm-21/SKILL.md)、[`utm-22`](skills/utm-22/SKILL.md)、[`utm-23`](skills/utm-23/SKILL.md)、[`utm-24`](skills/utm-24/SKILL.md)。
 
